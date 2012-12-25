@@ -26,7 +26,7 @@ public:
 	virtual void onDisconnected();
 
 
-private:
+protected:
 	void flushAndClose();
 
 protected:
