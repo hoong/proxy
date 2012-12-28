@@ -1,42 +1,46 @@
 #ifndef OUTER_HANDLER_H_
 #define OUTER_HANDLER_H_
 #include "../transfer_handler.h"
-#include "handler_queue.h"
 
 namespace proxy
 {
 namespace outer
 {
 
+/*
 class OuterHandler:public TransferHandler
 {
 public:
-	OuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl,boost::shared_ptr<HandlerQueue> queue);
+	OuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl);
 	virtual ~OuterHandler();
 public:
 
 protected:
 	boost::shared_ptr<HandlerQueue > sp_queue_;
 };
+*/
 
-class ExternalOuterHandler:public OuterHandler
+class ExternalOuterHandler:public TransferHandler
 {
 public:
+	ExternalOuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl);
 	virtual ~ExternalOuterHandler();
 
 	virtual void onOpen();
 
 };
 
-class InternalOuterHandler:public OuterHandler
+class InternalOuterHandler:public TransferHandler
 {
 public:
-	virtual ~ExternalOuterHandler();
+	InternalOuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl);
+	virtual ~InternalOuterHandler();
 	virtual void onOpen();
 
 };
 
 
+/*
 template <typename T>
 class OuterHandlerCreatorStrategy: public HandlerCreatorStrategyBase
 {
@@ -52,6 +56,7 @@ public:
 private:
 	boost::shared_ptr<HandlerQueue > sp_queue_;
 };
+*/
 
 }
 }
