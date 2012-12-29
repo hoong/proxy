@@ -26,6 +26,7 @@ InnerService::InnerService(const service_engine::CommandLineParser& parser)
 		getProperties().set("server.internal_ip", getCmdline().getStringOption("internal-ip"));
 	if (getCmdline().hasOption("internal-port"))
 		getProperties().set("server.internal_port", getCmdline().getIntOption("internal-port"));
+
 	if (getCmdline().hasOption("external-ip"))
 		getProperties().set("server.external_ip", getCmdline().getStringOption("external-ip"));
 	if (getCmdline().hasOption("external-port"))
@@ -51,7 +52,6 @@ InnerService::~InnerService()
 void InnerService::run()
 {
 	boost::shared_ptr<InnerHandler> outer = connectToOuter();
-	//finally
 	communicator_.wait();
 }
 
@@ -63,6 +63,23 @@ boost::shared_ptr<InnerHandler> InnerService::connectToOuter()
 	boost::shared_ptr<base::net::RefHandler> outhandler;
 	conn->open(outer_addr_, &outhandler);
 	return boost::static_pointer_cast<InnerHandler>(outhandler);
+}
+
+boost::shared_ptr<TransferHandler> InnerService::connectToProxy(const base::net::SockAddr proxy_addr)
+{
+	boost::shared_ptr<base::net::RefHandler> outhandler;
+	sp_connector_->open(proxy_addr, &outhandler);
+	return boost::static_pointer_cast<TransferHandler>(outhandler);
+}
+
+boost::shared_ptr<TransferHandler> InnerService::connectToExternal()
+{
+	return connectToProxy(external_addr_);
+}
+
+boost::shared_ptr<TransferHandler> InnerService::connectToInternal()
+{
+	return connectToProxy(internal_addr_);
 }
 
 

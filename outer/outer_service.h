@@ -20,28 +20,21 @@ public:
 
 private:
 	service_engine::Communicator communicator_;
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
+	base::net::SockAddr outer_addr_;
+	base::net::SockAddr external_addr_;
+	base::net::SockAddr internal_addr_;
 
 public:
-	void registerProxy(const std::string ,boost::weak_ptr<TransferHandler>);
-	bool requestProxy(boost::weak_ptr<TransferHandler>&);
-public:
-	bool registerAgentHandler(boost::shared_ptr<RpcHandler>);
-	bool isAgentAvailable();
-private:
-	//return peer address
-	std::string newProxy();
-private:
-	tbb::concurrent_queue<boost::weak_ptr<TransferHandler> > queue_;
-	boost::weak_ptr<RpcHandler> agent_handler_;
+	bool putProxy(boost::shared_ptr<TransferHandler>);
+	bool popProxy(boost::shared_ptr<TransferHandler>&);
 
+public:
+	void registerOuterHandler(boost::shared_ptr<OuterHandler>);
+
+private:
+	base::ConcurrentQueue< boost::weak_ptr<TransferHandler> > handler_queue_;
+
+	boost::weak_ptr<OuterHandler> outer_handler_;
 };
 
 

@@ -1,5 +1,5 @@
-#ifndef INNER_SERVICE_H_
-#define INNER_SERVICE_H_
+#ifndef PROXY_INNER_SERVICE_H_
+#define PROXY_INNER_SERVICE_H_
 #include "net/sock.h"
 
 
@@ -19,6 +19,8 @@ public:
 	boost::shared_ptr<InnerHandler> connectToOuter();
 	boost::shared_ptr<TransferHandler> connectToExternal();
 	boost::shared_ptr<TransferHandler> connectToInternal();
+private:
+	boost::shared_ptr<TransferHandler> connectToProxy(const base::net::SockAddr);
 
 private:
 	service_engine::Communicator communicator_;

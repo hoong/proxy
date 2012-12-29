@@ -7,6 +7,20 @@ namespace proxy
 namespace outer
 {
 
+
+
+
+
+class OuterHandler::public base::packet::PacketHandler
+{
+public:
+	OuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl);
+	virtual ~OuterHandler();
+
+	virtual void onOpen();
+	virtual void onPacketArrive(const Header& header, Packet& body);
+};
+
 /*
 class OuterHandler:public TransferHandler
 {
@@ -20,21 +34,21 @@ protected:
 };
 */
 
-class ExternalOuterHandler:public TransferHandler
+class ExternalHandler:public TransferHandler
 {
 public:
-	ExternalOuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl);
-	virtual ~ExternalOuterHandler();
+	ExternalHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl);
+	virtual ~ExternalHandler();
 
 	virtual void onOpen();
 
 };
 
-class InternalOuterHandler:public TransferHandler
+class InternalHandler:public TransferHandler
 {
 public:
-	InternalOuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl);
-	virtual ~InternalOuterHandler();
+	InternalHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl);
+	virtual ~InternalHandler();
 	virtual void onOpen();
 
 };

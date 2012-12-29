@@ -1,14 +1,14 @@
 #include "outer_handler.h"
-#include "../agent/proxy_agent.h"
+#include "outer_service.h"
 
 
 namespace proxy 
 {
 namespace outer 
 {
-/*
+
 OuterHandler::OuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl)
-	:TransferHandler(fd,addr,reactor_impl)
+	:base::packet::PacketHandler(fd,addr,reactor_impl)
 {
 }
 
@@ -16,80 +16,66 @@ OuterHandler::~OuterHandler()
 {
 }
 
-void OuterHandler::onOpen()
+void Outerhandler::onOpen()
 {
-	TransferHandler::onOpen();
-
-	//TO-DO
-
-
+	OuterService::instance()->registerOuterHandler(this->shared_from_this());
 }
-*/
 
-ExternalOuterHandler::ExternalOuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl)
+void Outerhandler::onPacketArrive(const Header& header, Packet& body)
+{
+	LOG(trace)<<"Receive Response."<<ENDL;
+}
+
+
+ExternalHandler::ExternalHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl)
 	:TransferHandler(fd,addr,reactor_impl)
 {
 }
 
-ExternalOuterHandler::~ExternalOuterHandler()
+ExternalHandler::~ExternalHandler()
 {
 }
 
-void ExternalOuterHandler::onOpen()
+void ExternalHandler::onOpen()
 {
+
 	OuterHandler::onOpen();
-	boost::weak_ptr<TransferHandler> peer;
-	if (PROXY_AGENT::instance().requestProxy(peer) )
+
+	if ( !OuterService::instance()->putProxy(boost::dynamic_pointer_cast<TransferHandler>(this->shared_from_this())) )
 	{
-		registerPeer(peer);
-	}
-	else
-	{
+		LOG(error)<<"Inner Service Not Available!"<<ENDL;
 		close();
 	}
 
-
-	/*
-	boost::weak_ptr<TransferHandler> peer = boost::static_pointer_cast<TransferHandler>(this->shared_from_this() );
-	sp_queue_->push(peer);
-	*/
 }
 
 
-InternalOuterHandler::InternalOuterHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl)
+InternalHandler::InternalHandler(int fd, const base::net::SockAddr& addr, boost::shared_ptr<base::net::ReactorImpl> reactor_impl)
 	:TransferHandler(fd,addr,reactor_impl)
 {
 }
 
-InternalOuterHandler::~InternalOuterHandler()
+InternalHandler::~InternalHandler()
 {
 }
 
-void InternalOuterHandler::onOpen()
+void InternalHandler::onOpen()
 {
 	OuterHandler::onOpen();
-	boost::weak_ptr<TransferHandler> peer = boost::static_pointer_cast<TransferHandler>(this->shared_from_this());
-	PROXY_AGENT::instance().registerProxy(addr().toString(),peer);
 
-	/*
-	boost::weak_ptr<TransferHandler> peer;
-	while(sp_queue_->pop(peer))
+
+	boost::shared_ptr<Transferhandler> peer ; 
+	if (!OuterService::instance()->popProxy(peer) )
 	{
-		boost::shared_ptr<TransferHandler> spto = peer->lock();
-		if (!spto)
-		{
-			continue;
-		}
-		else
-		{
-			registerPeer(spto);
-			return;
-		}
+		close();
+		return;
 	}
+	registerPeer(peer);
 
-	close();
-	*/
 }
+
+
+
 
 
 }

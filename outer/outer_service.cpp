@@ -12,22 +12,22 @@ OuterService::OuterService(const service_engine::CommandLineParser& parser)
 : service_engine::ServiceT<ProxyService>(parser)
 {
 	std::string localhost = "127.0.0.1";
-	if (getCmdline().hasOption("agent-port"))
-		getProperties().set("server.agent_port", getCmdline().getIntOption("agent-port"));
+	if (getCmdline().hasOption("outer-port"))
+		getProperties().set("server.outer_port", getCmdline().getIntOption("outer-port"));
 	if (getCmdline().hasOption("external-port"))
 		getProperties().set("server.external_port", getCmdline().getIntOption("external-port"));
 	if (getCmdline().hasOption("internal-port"))
 		getProperties().set("server.internal_port", getCmdline().getIntOption("internal-port"));
 
-	if ( 0 != AgentMethodParam::instance().agent_addr().set(localhost,getProperties().get<int>("server.agent_port")))
+	if ( 0 != outer_addr_.set(localhost,getProperties().get<int>("server.outer_port")))
 	{
-		THROW_FATAL_EXCEPTION("agent address invalid!");
+		THROW_FATAL_EXCEPTION("outeraddress invalid!");
 	}
-	if ( 0 != AgentMethodParam::instance().external_addr().set(localhost,getProperties().get<int>("server.external_por")))
+	if ( 0 != external_addr_.set(localhost,getProperties().get<int>("server.external_por")))
 	{
 		THROW_FATAL_EXCEPTION("external address invalid!");
 	}
-	if ( 0 != AgentMethodParam::instance().internal_addr().set(localhost,getProperties().get<int>("server.internal_port")))
+	if ( 0 != internal_addr_.set(localhost,getProperties().get<int>("server.internal_port")))
 	{
 		THROW_FATAL_EXCEPTION("internal address invalid!");
 	}
@@ -39,31 +39,31 @@ OuterService::~OuterService()
 
 void OuterService::run()
 {
-	// agent service
-	boost::shared_ptr<RpcStubsPoolTraits> pool_trait(new service_engine::RpcStubsMultiThreadPoolTraits(2) );
-	service_engine::RpcStubsPool stubs_pool(pool_trait);
-	service_engine::RpcStubManager stubs_mgr(stubs_pool);
-	stubs_mgr.registerStub<agent::MethodAgentRegister>();
-	RpcAcceptorT agent_acceptor(AgentMethodParam::instance().agent_addr().getPort(),communicator_,&stubs_mgr);
+	//outer service
+	base::net::Acceptor outer_acceptor(communicator_.reactor());
+	auto_ptr<base::net::HandlerCreatorStrategyBase> outer_handler_stg(new base::net::HandlerCreatorStrategy<OuterHandler>());
+	internal_acceptor.open(
+			outer_addr_.getPort(),
+			-1,
+			outer_handler_stg);
+
 	
 	//internal service
 	base::net::Acceptor internal_acceptor(communicator_.reactor());
-	auto_ptr<base::net::HandlerCreatorStrategyBase> internal_handler_stg(new base::net::HandlerCreatorStrategy<InternalOuterHandler>());
+	auto_ptr<base::net::HandlerCreatorStrategyBase> internal_handler_stg(new base::net::HandlerCreatorStrategy<InternalHandler>());
 	internal_acceptor.open(
-			AgentMethodParam::instance().internal_addr().getPort(),
+			internal_addr_.getPort(),
 			-1,
 			internal_handler_stg);
 
 
 	//external service
 	base::net::Acceptor external_acceptor(communicator_.reactor());
-	auto_ptr<base::net::HandlerCreatorStrategyBase> external_handler_stg(new base::net::HandlerCreatorStrategy<ExternalOuterHandler>());
-	acceptor.open(
-			AgentMethodParam::instance().external_addr().getPort(),
+	auto_ptr<base::net::HandlerCreatorStrategyBase> external_handler_stg(new base::net::HandlerCreatorStrategy<ExternalHandler>());
+	external_acceptor.open(
+			external_addr_.getPort(),
 			-1,
 			external_handler_stg);
-
-
 
 
 	//finally
@@ -72,109 +72,52 @@ void OuterService::run()
 
 
 
-
-
-
-
-
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////
-
-
-
-
-void ProxyAgent::registerProxy(const std::string addr,boost::weak_ptr<TransferHandler> proxy)
+bool OuterService::putProxy(boost::shared_ptr<TransferHandler> proxy)
 {
-	queue_.push(proxy);
-}
-
-
-bool ProxyAgent::registerAgentHandler(boost::shared_ptr<RpcHandler> agent)
-{
-	boost::shared_ptr<RpcHandler> a = agent_handler_.lock();
-	if (!a)
-	{
-		agent_handler_ = agent;
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-bool ProxyAgent::requestProxy(boost::weak_ptr<TransferHandler>& proxy)
-{
-	std::string ret = newProxy();
-	if (ret.empty() )
+	boost::shared_ptr<OuterHandler> outer = outer_handler_.lock();
+	if (!outer || outer->isClose())
 	{
 		return false;
 	}
 
-	service_engine::RpcProxy<NewProxy> rpc();
+	handler_queue_.push(proxy);
 
-	while (queue_.try_pop(proxy) )
+	base::packet::Header hdr;
+	const uint32_t whatever = 0;
+	outer_handler_->write(hdr,whatever);
+	
+	return true;
+}
+
+
+
+bool OuterService::popProxy(boost::shared_ptr<TransferHandler>& proxy)
+{
+	boost::weak_ptr<TransferHandler> peer;
+	
+	while(handler_queue_.try_pop(peer))
 	{
-		boost::shared_ptr<TransferHandler> peer = proxy.lock();
-		if (! peer)
-		{
+		proxy = peer.lock();
+		if (!proxy)
 			continue;
-		}
-
-		return true;
+		else
+			return true;
 	}
 
 	return false;
 
 }
 
-std::string ProxyAgent::newProxy()
+
+void OuterService::registerOuterHandler(boost::shared_ptr<OuterHandler> peer)
 {
-	boost::shared_ptr<service_engine::RpcHandler> agent = agent_handler_.lock();
-	std::string ret;
-	ret.erase();
-	if (!agent)
+	boost::shared_ptr<OuterHandler> a = outer_handler_.lock();
+	if (a.get())
 	{
-		LOG(error)<<"Agent service not ready !" <<ENDL;
-		return ret;
+		a->close();
 	}
-	else
-	{
-		try
-		{
-			service_engine::RpcProxy<NewProxy> rpc(agent);
-			NewProxy::RequestType req;
-			NewProxy::ResponseType rsp;
-			rpc.call(req,rsp,10000);
-			ret = rsp.addr();
-			return ret;
-		}
-		catch(RpcCallException& e)
-		{
-			LOG(error)<<"NewProxy Failed:"<<e.what()<<ENDL;
-			return ret;
-		}
-		catch(...)
-		{
-			return ret;
-		}
-	}
+	outer_handler_=peer;
 }
-
-
-
-
-
-
-
 
 
 }}

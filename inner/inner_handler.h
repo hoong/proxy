@@ -3,7 +3,6 @@
 
 #include "../transfer_handler.h"
 #include "packet/packet_handler.h"
-#include "inner_service.h"
 
 namespace proxy
 {
